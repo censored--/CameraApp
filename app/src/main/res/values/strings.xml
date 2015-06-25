@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">CameraApp</string>
 
-    <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
+    <string name="switch_cam">switch camera</string>
+    <string name="camera_alert">no other camera</string>
 </resources>

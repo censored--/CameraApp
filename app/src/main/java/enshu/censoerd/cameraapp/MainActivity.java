@@ -1,6 +1,8 @@
 package enshu.censoerd.cameraapp;
 
 import android.app.Activity;
+import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -8,8 +10,10 @@ import android.graphics.Color;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.hardware.Camera;
 import android.os.Bundle;
+import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -21,23 +25,33 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebIconDatabase;
+import android.widget.CheckBox;
 import android.widget.NumberPicker;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
+
+import static java.util.Arrays.fill;
+import static java.util.Arrays.toString;
 
 
 public class MainActivity extends Activity {
 
-    private SurfaceView mySurfaceView, mySurfaceView2;
+    private SurfaceView mySurfaceView, mySurfaceView2,mySurfaceView3;
     private Camera myCamera; //hardware
-    private Bitmap myBitmap;
-    private int[] myGray;
+    private Bitmap myBitmap,myBitmap2;
+    private BitArray myGray;
+    private BitArray Mono;
     public int tau;
     private int WIDTH, HEIGHT;
-    private SurfaceHolder holder, holder2;
+    private SurfaceHolder holder, holder2,holder3;
     NumberPicker npicker;
+    private boolean enableNoiseRejection;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,19 +61,19 @@ public class MainActivity extends Activity {
         //SurfaceView
         mySurfaceView = (SurfaceView) findViewById(R.id.surface_view);
         mySurfaceView2 = (SurfaceView) findViewById(R.id.surface_view2);
-        //listner‚Ì’Ç‰Á
+        mySurfaceView3 = (SurfaceView) findViewById(R.id.surface_view3);
         mySurfaceView.setOnClickListener(onSurfaceClickListener);
-        //SurfaceHolder(SV‚Ì§Œä‚Ég‚¤Interfacej
+        mySurfaceView2.setOnClickListener(onSurface2ClickListener);
         holder = mySurfaceView.getHolder();
         holder2 = mySurfaceView2.getHolder();
-        //ƒR[ƒ‹ƒoƒbƒN‚ğİ’è
+        holder3 = mySurfaceView3.getHolder();
         holder.addCallback(callback);
         holder2.addCallback(callback2);
-        //Number Picker‚Ìİ’è
+        holder3.addCallback(callback3);
         npicker = (NumberPicker) findViewById(R.id.numberPicker);
         npicker.setMaxValue(255);
         npicker.setMinValue(0);
-        tau = 27;
+        tau = 10;
         npicker.setValue(tau);
         npicker.setOnValueChangedListener(new NumberPicker.OnValueChangeListener() {
             @Override
@@ -67,22 +81,38 @@ public class MainActivity extends Activity {
                 tau = npicker.getValue();
             }
         });
+        initializeCheckBox();
     }
 
-    //ƒR[ƒ‹ƒoƒbƒN
+    private void initializeCheckBox(){
+        CheckBox checkBox = (CheckBox) findViewById(R.id.RefineCheckBox);
+        // ãƒã‚§ãƒƒã‚¯ãƒœãƒƒã‚¯ã‚¹ã®ãƒã‚§ï¿½?ã‚¯çŠ¶æ…‹ã‚’è¨­å®šã—ã¾ï¿½?
+        checkBox.setChecked(false);
+        // ãƒã‚§ï¿½?ã‚¯ãƒœãƒƒã‚¯ã‚¹ãŒã‚¯ãƒªï¿½?ã‚¯ã•ã‚ŒãŸæ™‚ã«å‘¼ã³å‡ºã•ã‚Œã‚‹ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯ãƒªã‚¹ãƒŠï¿½?ï¿½ã‚’ç™»éŒ²ã—ã¾ï¿½?
+        checkBox.setOnClickListener(new View.OnClickListener() {
+            @Override
+            // ãƒã‚§ï¿½?ã‚¯ãƒœãƒƒã‚¯ã‚¹ãŒã‚¯ãƒªï¿½?ã‚¯ã•ã‚ŒãŸæ™‚ã«å‘¼ã³å‡ºã•ã‚Œã¾ï¿½?
+            public void onClick(View v) {
+                CheckBox checkBox = (CheckBox) v;
+                // ãƒã‚§ï¿½?ã‚¯ãƒœãƒƒã‚¯ã‚¹ã®ãƒã‚§ï¿½?ã‚¯çŠ¶æ…‹ã‚’å–å¾—ã—ã¾ï¿½?
+                enableNoiseRejection = checkBox.isChecked();
+                Toast.makeText(MainActivity.this,
+                        "onClick():" + String.valueOf(enableNoiseRejection),
+                        Toast.LENGTH_SHORT).show();
+            }
+        });
+
+    }
+
     private SurfaceHolder.Callback callback = new SurfaceHolder.Callback() {
         @Override
         public void surfaceCreated(SurfaceHolder surfaceHolder) {
 
-            //CameraOpen
-            myCamera = Camera.open();
-            myCamera.setDisplayOrientation(90);
-
-            //o—Í‚ğSurfaceView‚Éİ’è
             try {
-                //‚±‚ê‚Ì‘ã‚í‚è‚É
+                //CameraOpen
+                myCamera = Camera.open();
+                myCamera.setDisplayOrientation(90);
                 myCamera.setPreviewDisplay(surfaceHolder);
-                //‚±‚Á‚¿‚ğg‚¤
                 myCamera.setPreviewCallback(normalpreviewCallback);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -92,7 +122,6 @@ public class MainActivity extends Activity {
 
         @Override
         public void surfaceChanged(SurfaceHolder surfaceHolder, int i, int w, int h) {
-            //Å“K‚ÈƒTƒCƒY‚ğæ“¾
             Camera.Parameters params = myCamera.getParameters();
             List<Camera.Size> sizes = params.getSupportedPreviewSizes();
             Camera.Size optimalSize = getOptimalPreviewSize(sizes, w, h);
@@ -104,25 +133,21 @@ public class MainActivity extends Activity {
             myCamera.setParameters(params);
             int size = WIDTH * HEIGHT *
                     ImageFormat.getBitsPerPixel(params.getPreviewFormat()) / 8;
-            myGray = new int[WIDTH * HEIGHT];
-            myBitmap = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888);
-            // ƒŒƒCƒAƒEƒg’²®
+            myGray = new BitArray(WIDTH * HEIGHT);
+            Mono = new BitArray(WIDTH * HEIGHT / 16);
+            myBitmap = Bitmap.createBitmap(WIDTH/4, HEIGHT/4, Bitmap.Config.ARGB_8888);
             ViewGroup.LayoutParams layoutParams = mySurfaceView.getLayoutParams();
             layoutParams.width = HEIGHT;
             layoutParams.height = WIDTH;
             mySurfaceView.setLayoutParams(layoutParams);
-            // ƒeƒLƒXƒgƒrƒ…[‚ÌƒeƒLƒXƒg‚ğİ’è‚µ‚Ü‚·
             TextView textView = (TextView) findViewById(R.id.textView);
             textView.setText("width:" + String.valueOf(layoutParams.width) + "\n" + "height:" + String.valueOf(layoutParams.height));
-            //ƒvƒŒƒrƒ…[ƒXƒ^[ƒgiChanged‚ÍÅ‰‚É‚à1“x‚ÍŒÄ‚Î‚ê‚éj
             myCamera.startPreview();
 
         }
 
         @Override
         public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
-
-            //•Ğ•t‚¯
             myCamera.release();
             myCamera = null;
         }
@@ -147,64 +172,109 @@ public class MainActivity extends Activity {
         }
     };
 
-    //ˆÈ‰ºASTEP2‚Å’Ç‰Á
+    private SurfaceHolder.Callback callback3 = new SurfaceHolder.Callback() {
+        @Override
+        public void surfaceCreated(SurfaceHolder surfaceHolder) {
+        }
 
-    //surface‚ğƒNƒŠƒbƒN‚µ‚½‚Æ‚«
+        @Override
+        public void surfaceChanged(SurfaceHolder surfaceHolder, int i, int w, int h) {
+            ViewGroup.LayoutParams layoutParams = mySurfaceView3.getLayoutParams();
+            layoutParams.width = HEIGHT;
+            layoutParams.height = WIDTH;
+            mySurfaceView3.setLayoutParams(layoutParams);
+        }
+
+        @Override
+        public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
+        }
+    };
+
     private View.OnClickListener onSurfaceClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View view) {
             if (myCamera != null) {
-                //auto focus‚ğÀs
                 myCamera.autoFocus(autoFocusCallback);
             }
         }
     };
 
-    //autofocus‚µ‚½‚Æ‚«
+    private View.OnClickListener onSurface2ClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View view) {
+            try {
+                // sdcardãƒ•ã‚©ãƒ«ãƒ€ã‚’æŒ‡å®š
+                final String SAVE_DIR = "/MyPhoto/";
+                File root = new File(Environment.getExternalStorageDirectory().getPath() + SAVE_DIR);
+                try{
+                    if(!root.exists()){
+                        root.mkdir();
+                    }
+                }catch(SecurityException e){
+                    e.printStackTrace();
+                    throw e;
+                }
+                // æ—¥ä»˜ã§ãƒ•ã‚¡ã‚¤ãƒ«åã‚’ä½œæˆã€€
+                Date mDate = new Date();
+                SimpleDateFormat fileName = new SimpleDateFormat("yyyyMMdd_HHmmss");
+                String fn = fileName.format(mDate)+".png";
+                File AttachName = new File(root,fn);
+                FileOutputStream out = new FileOutputStream(AttachName);
+                myBitmap2.compress(Bitmap.CompressFormat.PNG, 100, out);
+                out.close();
+                Toast.makeText(getApplicationContext(), "Save " + AttachName.toString(), Toast.LENGTH_LONG).show();
+
+                ContentValues values = new ContentValues();
+                ContentResolver contentResolver = getContentResolver();
+                values.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
+                values.put(MediaStore.Images.Media.TITLE, fn);
+                values.put("_data", AttachName.toString());
+                contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    };
+
     private Camera.AutoFocusCallback autoFocusCallback = new Camera.AutoFocusCallback() {
         @Override
         public void onAutoFocus(boolean b, Camera camera) {
-            //preview‚ğˆë–‡Ø‚èæ‚é
             camera.setOneShotPreviewCallback(previewCallback);
         }
     };
 
     private final Camera.PreviewCallback normalpreviewCallback = new Camera.PreviewCallback() {
         public void onPreviewFrame(byte[] bytes, Camera camera) {
-            //ƒvƒŒƒrƒ…[‚ÌƒtƒH[ƒ}ƒbƒg‚ÍYUV‚È‚Ì‚ÅAYUV‚ğBmp‚É•ÏŠ·‚·‚é•K—v‚ª‚ ‚éi‚â‚â‚±‚µ‚¢j
-            int[] frame = myGray;
-          /*for (int i = 0; i < frame.length; i ++) {
-              int gray = bytes[i] & 0xff;
-              // –¾“x‚ğARGB‚É•ÏŠ·‚µ‚Ü‚·
-              // —á‚¦‚Î–¾“x‚ª30‚È‚çAA=255, R=30, G=30, B=30‚Æ‚µ‚Ä‚¢‚Ü‚·
-              frame[i] = 0xff000000 | gray << 16 | gray << 8 | gray;
-          }*/
-            YUV_NV21_TO_RGB(frame, bytes, WIDTH, HEIGHT, tau);
-            // int[]‚ğBitmap‚É•ÏŠ·‚·‚é
-            myBitmap.setPixels(myGray, 0, WIDTH, 0, 0,
-                    WIDTH, HEIGHT);
+            YUV_NV21_TO_RGB(myGray, bytes, WIDTH, HEIGHT, tau);
+            int width = WIDTH / 4;
+            int height = HEIGHT / 4;
+            quarter(myGray, Mono, WIDTH, HEIGHT);
+            int[] frame;
+            if (enableNoiseRejection) {
+                ConnectedComponentProcess CCP = new ConnectedComponentProcess(Mono, width, height);
+                CCP.deleteNoise();
+            }
+            frame = BIT_TO_INT(Mono);
+            myBitmap.setPixels(frame, 0, width, 0, 0, width, height);
             Matrix mat = new Matrix();
             mat.postRotate(90);
-            Bitmap myBitmap2 = Bitmap.createBitmap(myBitmap, 0, 0, myBitmap.getWidth(), myBitmap.getHeight(), mat, true);
-            Canvas c = holder2.lockCanvas();
-            c.drawBitmap(myBitmap2, 0, 0, null);
-            holder2.unlockCanvasAndPost(c);
-            Log.d("test", "[PreviewCallBack]W:" + String.valueOf(myBitmap2));
+            myBitmap2 = Bitmap.createBitmap(myBitmap, 0, 0, myBitmap.getWidth(), myBitmap.getHeight(), mat, true);
+            Rect src = new Rect(0, 0, myBitmap2.getWidth(), myBitmap2.getHeight());
+            Rect dst = new Rect(0, 0, myBitmap2.getWidth()*4, myBitmap2.getHeight()*4);
+            Canvas c3 = holder2.lockCanvas();
+            c3.drawBitmap(myBitmap2, src, dst, null);
+            holder2.unlockCanvasAndPost(c3);
         }
     };
 
-    //Ø‚èæ‚Á‚½i‚±‚±‚ÅB‰eAŠeí‰æ‘œˆ—‚ğs‚¤j
     private Camera.PreviewCallback previewCallback = new Camera.PreviewCallback() {
-
-        //OnShotPreview‚Ìbyte[]‚ª“n‚Á‚Ä‚­‚é
         @Override
         public void onPreviewFrame(byte[] bytes, Camera camera) {
-            String res = MediaStore.Images.Media.insertImage(getContentResolver(), myBitmap, "pohe.jpg", null);
-            Toast.makeText(getApplicationContext(), "Get Focus." + res, Toast.LENGTH_LONG).show();
+            //String res = MediaStore.Images.Media.insertImage(getContentResolver(), myBitmap2, "pohe.jpg", null);
+            Toast.makeText(getApplicationContext(), "Get Focus.", Toast.LENGTH_LONG).show();
         }
     };
 
-    //ApiDemo‚Å‚æ‚­g‚¤getOptimalPreviewSize << STEP4
     private Camera.Size getOptimalPreviewSize(List<Camera.Size> sizes, int w, int h) {
 
         final double ASPECT_TOLERANCE = 0.1;
@@ -238,11 +308,26 @@ public class MainActivity extends Activity {
         return optimalSize;
     }
 
-    ;
-
+    public int[] BIT_TO_INT(BitArray b){
+        int[] i = new int[b.length()];
+        for (int k = 0; k < b.length(); k++)
+            i[k] = b.get(k) ? 0xFFFFFFFF : 0xFF000000;
+        return i;
+    }
+    private void quarter(BitArray before,BitArray after,int width,int height){
+        for (int y = 0 ; y < height/4; y++)
+            for (int x = 0; x < width/4; x++){
+                int sum = 0;
+                for (int dy = 0; dy < 4; dy++)
+                    for (int dx = 0; dx < 4; dx++) {
+                        if (before.get(4 * x + dx + width * (4 * y + dy))) sum++;
+                    }
+                after.set(x+width/4*y,sum >= 8);
+            }
+    }
 
     //encoder
-    public static void YUV_NV21_TO_RGB(int[] argb, byte[] yuv, int width, int height, int tau) {
+    public static void YUV_NV21_TO_RGB(BitArray bw, byte[] yuv, int width, int height, int tau) {
         final int frameSize = width * height;
 
         final int ii = 0;
@@ -268,9 +353,9 @@ public class MainActivity extends Activity {
                 int skin = r - g < r - b ? r - g : r - b;
                 //argb[a++] = 0xff000000 | (r << 16) | (g << 8) | b;
                 if (skin > tau)
-                    argb[a++] = 0xffffffff;
+                    bw.set(a++,true);
                 else
-                    argb[a++] = 0xff000000;//0xff000000 | (r << 16) | (g << 8) | b;
+                    bw.set(a++,false);//0xff000000 | (r << 16) | (g << 8) | b;
             }
         }
     }

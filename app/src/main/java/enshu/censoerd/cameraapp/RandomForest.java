@@ -1,69 +1,54 @@
 package enshu.censoerd.cameraapp;
 
-import android.hardware.camera2.params.MeteringRectangle;
-import android.util.Pair;
+import java.io.Serializable;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.util.HashMap;
+public class RandomForest implements Serializable {
+    private static final long serialVersionUID = -4042668303301496279L;
+    public int numberOfTree;
+    public Tree[] forest;
 
-/**
- * Created by —´ˆê on 2015/06/25.
- */
-
-/*
-public class Forest{
-    private class SplitFunction{
-        public double w;
-        public double v;
-        public Pair<Boolean,Boolean> Gamma;
-    }
-    private class Tree{
-        public int key;
-        public Pair<Integer,Integer>[] bags;
+    static public class Tree implements Serializable {
+        private static final long serialVersionUID = -3463601467746667431L;
         public Tree left;
         public Tree right;
         public boolean isSplitNode;
         public SplitFunction splitfunction;
+        public int genre;
     }
-    public HashMap<Integer,Tree>[][][] forest;
-}*/
 
-public class RandomForest {
-    Forest forest;
-    private int numberOfTree;
+    static public class SplitFunction implements Serializable {
+        private static final long serialVersionUID = -1080757224636557780L;
+        public int wx, wy;
+        public int vx, vy;
+        public boolean Gammax;
+        public boolean Gammay;
 
-    RandomForest(int width, int height, String fileName) {
-        try {
-            FileInputStream fis = new FileInputStream(fileName);
-            ObjectInputStream ois = new ObjectInputStream(fis);
-            forest = (Forest) ois.readObject();
-            ois.close();
-            fis.close();
-        } catch (Exception e) {
-            e.printStackTrace();
+        public boolean satisfy(BitArray s, int ux, int uy, int width, int height) {
+            int upwx = ux + wx;
+            int upwy = uy + wy;
+            int upvx = ux + vx;
+            int upvy = uy + vy;
+            upwx = upwx < 0 ? 0 : (upwx < width ? upwx : width - 1);
+            upvx = upvx < 0 ? 0 : (upvx < width ? upvx : width - 1);
+            upwy = upwy < 0 ? 0 : (upwy < height ? upwy : height - 1);
+            upvy = upvy < 0 ? 0 : (upvy < height ? upvy : height - 1);
+            return s.get(upwx + width * upwy) == Gammax
+                    && s.get(upvx + width * upvy) == Gammay;
         }
-        numberOfTree = forest.forest[0][0].length;
+
+        SplitFunction(int _wx, int _wy, int _vx, int _vy, boolean _Gammax,
+                      boolean _Gammay) {
+            wx = _wx;
+            wy = _wy;
+            vx = _vx;
+            vy = _vy;
+            Gammax = _Gammax;
+            Gammay = _Gammay;
+        }
     }
 
-    RandomForest(int width, int height, int _numberOfTree) {
+    RandomForest(int _numberOfTree) {
+        forest = new Tree[_numberOfTree];
         numberOfTree = _numberOfTree;
-        forest = new Forest(width, height, _numberOfTree);
-    }
-
-    int getNumberOfTree() {
-        return numberOfTree;
-    }
-
-    void writeObject(String filename) {
-        try {
-            FileOutputStream fos = new FileOutputStream(filename);
-            ObjectOutputStream oos = new ObjectOutputStream(fos);
-            oos.writeObject(this);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 }

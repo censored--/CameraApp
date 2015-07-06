@@ -17,14 +17,28 @@
         android:layout_height="wrap_content"
         android:layout_below="@+id/surface_view" />
 
+    <SurfaceView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/surface_view3"
+        android:layout_below="@+id/surface_view2"/>
+
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="This is a test message."
         android:id="@+id/textView"
         android:layout_gravity="bottom"
-        android:layout_below="@+id/surface_view2"
+        android:layout_below="@+id/surface_view3"
         android:layout_alignParentStart="true" />
+
+    <CheckBox
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/NoiseCheckBoxString"
+        android:id="@+id/RefineCheckBox"
+        android:layout_alignTop="@+id/numberPicker"
+        android:layout_toEndOf="@+id/surface_view3" />
 
     <NumberPicker
         android:layout_width="wrap_content"
@@ -32,4 +46,5 @@
         android:id="@+id/numberPicker"
         android:layout_below="@+id/textView"
         android:layout_alignParentStart="true" />
+
 </RelativeLayout>

@@ -1,30 +1,23 @@
-package enshu.censoerd.cameraapp;
+package enshu.censored.cameraapp;
 
 import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.ContentValues;
-import android.content.Context;
+import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
-import android.graphics.Paint;
 import android.graphics.Rect;
 import android.hardware.Camera;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
-import android.util.AttributeSet;
 import android.util.Log;
-import android.view.Menu;
-import android.view.MenuItem;
-import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
-import android.webkit.WebIconDatabase;
 import android.widget.CheckBox;
 import android.widget.NumberPicker;
 import android.widget.TextView;
@@ -32,9 +25,12 @@ import android.widget.Toast;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+
+import enshu.censoerd.cameraapp.R;
 
 import static java.util.Arrays.fill;
 import static java.util.Arrays.toString;
@@ -44,14 +40,17 @@ public class MainActivity extends Activity {
 
     private SurfaceView mySurfaceView, mySurfaceView2,mySurfaceView3;
     private Camera myCamera; //hardware
-    private Bitmap myBitmap,myBitmap2;
+    private Bitmap myBitmap,myBitmap2,myBitmap3,myBitmap4;
     private BitArray myGray;
     private BitArray Mono;
     public int tau;
     private int WIDTH, HEIGHT;
+    private int[] output;
     private SurfaceHolder holder, holder2,holder3;
     NumberPicker npicker;
     private boolean enableNoiseRejection;
+    private DistanceRandomForest forest;
+    TextView textView2;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -136,14 +135,25 @@ public class MainActivity extends Activity {
             myGray = new BitArray(WIDTH * HEIGHT);
             Mono = new BitArray(WIDTH * HEIGHT / 16);
             myBitmap = Bitmap.createBitmap(WIDTH/4, HEIGHT/4, Bitmap.Config.ARGB_8888);
+            myBitmap3 = Bitmap.createBitmap(WIDTH/4, HEIGHT/4, Bitmap.Config.ARGB_8888);
             ViewGroup.LayoutParams layoutParams = mySurfaceView.getLayoutParams();
             layoutParams.width = HEIGHT;
             layoutParams.height = WIDTH;
             mySurfaceView.setLayoutParams(layoutParams);
             TextView textView = (TextView) findViewById(R.id.textView);
             textView.setText("width:" + String.valueOf(layoutParams.width) + "\n" + "height:" + String.valueOf(layoutParams.height));
+            textView2 = (TextView) findViewById(R.id.textView2);
             myCamera.startPreview();
-
+            output = new int[WIDTH/4*HEIGHT/4];
+            AssetManager assetManager = getResources().getAssets();
+            InputStream is = null;
+            try {
+                is = assetManager.open("DRF.dat");
+                Log.d("DRF","opened \"DRF.dat\"");
+            }catch (Exception e){
+                Log.e("open(\"DRF.dat\")",Log.getStackTraceString(e));
+            }
+            forest = new DistanceRandomForest(is,output,WIDTH/4,HEIGHT/4);
         }
 
         @Override
@@ -255,15 +265,28 @@ public class MainActivity extends Activity {
                 CCP.deleteNoise();
             }
             frame = BIT_TO_INT(Mono);
+            forest.classify(Mono);
+            int sum = 1;
+            for (int k = 1; k < 4; k++){
+                sum += forest.genre[k];
+            }
+            textView2.setText("Too Close:\t"+100*forest.genre[1]/sum+"%"
+                            +"\nReasonable:\t"+100*forest.genre[2]/sum+"%"
+                            +"\nToo Far:\t"+100*forest.genre[3]/sum+"%");
             myBitmap.setPixels(frame, 0, width, 0, 0, width, height);
+            myBitmap3.setPixels(output, 0, width, 0, 0, width, height);
             Matrix mat = new Matrix();
             mat.postRotate(90);
             myBitmap2 = Bitmap.createBitmap(myBitmap, 0, 0, myBitmap.getWidth(), myBitmap.getHeight(), mat, true);
-            Rect src = new Rect(0, 0, myBitmap2.getWidth(), myBitmap2.getHeight());
-            Rect dst = new Rect(0, 0, myBitmap2.getWidth()*4, myBitmap2.getHeight()*4);
+            myBitmap4 = Bitmap.createBitmap(myBitmap3, 0, 0, myBitmap3.getWidth(), myBitmap3.getHeight(), mat,true);
+            Rect src = new Rect(0, 0, myBitmap4.getWidth(), myBitmap4.getHeight());
+            Rect dst = new Rect(0, 0, myBitmap4.getWidth()*4, myBitmap4.getHeight()*4);
             Canvas c3 = holder2.lockCanvas();
             c3.drawBitmap(myBitmap2, src, dst, null);
             holder2.unlockCanvasAndPost(c3);
+            c3 = holder3.lockCanvas();
+            c3.drawBitmap(myBitmap4, src, dst, null);
+            holder3.unlockCanvasAndPost(c3);
         }
     };
 

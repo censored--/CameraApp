@@ -1,4 +1,4 @@
-package enshu.censoerd.cameraapp;
+package enshu.censored.cameraapp;
 
 import java.io.Serializable;
 

@@ -1,4 +1,4 @@
-package enshu.censoerd.cameraapp;
+package enshu.censored.cameraapp;
 
 /*
 64bit: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX

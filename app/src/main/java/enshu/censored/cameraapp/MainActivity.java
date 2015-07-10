@@ -49,8 +49,9 @@ public class MainActivity extends Activity {
     private SurfaceHolder holder, holder2,holder3;
     NumberPicker npicker;
     private boolean enableNoiseRejection;
-    private DistanceRandomForest forest;
-    TextView textView2;
+    private DistanceRandomForest DRF;
+    private ShapeRandomForest SRF;
+    TextView textView2,textView3;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -134,8 +135,8 @@ public class MainActivity extends Activity {
                     ImageFormat.getBitsPerPixel(params.getPreviewFormat()) / 8;
             myGray = new BitArray(WIDTH * HEIGHT);
             Mono = new BitArray(WIDTH * HEIGHT / 16);
-            myBitmap = Bitmap.createBitmap(WIDTH/4, HEIGHT/4, Bitmap.Config.ARGB_8888);
-            myBitmap3 = Bitmap.createBitmap(WIDTH/4, HEIGHT/4, Bitmap.Config.ARGB_8888);
+            myBitmap = Bitmap.createBitmap(HEIGHT/4, WIDTH/4, Bitmap.Config.ARGB_8888);
+            myBitmap3 = Bitmap.createBitmap(HEIGHT/4, WIDTH/4, Bitmap.Config.ARGB_8888);
             ViewGroup.LayoutParams layoutParams = mySurfaceView.getLayoutParams();
             layoutParams.width = HEIGHT;
             layoutParams.height = WIDTH;
@@ -143,17 +144,26 @@ public class MainActivity extends Activity {
             TextView textView = (TextView) findViewById(R.id.textView);
             textView.setText("width:" + String.valueOf(layoutParams.width) + "\n" + "height:" + String.valueOf(layoutParams.height));
             textView2 = (TextView) findViewById(R.id.textView2);
+            textView3 = (TextView) findViewById(R.id.textView3);
             myCamera.startPreview();
             output = new int[WIDTH/4*HEIGHT/4];
             AssetManager assetManager = getResources().getAssets();
-            InputStream is = null;
+            InputStream iDRF = null;
             try {
-                is = assetManager.open("DRF.dat");
+                iDRF = assetManager.open("DRF.dat");
                 Log.d("DRF","opened \"DRF.dat\"");
             }catch (Exception e){
                 Log.e("open(\"DRF.dat\")",Log.getStackTraceString(e));
             }
-            forest = new DistanceRandomForest(is,output,WIDTH/4,HEIGHT/4);
+            DRF = new DistanceRandomForest(iDRF,output,HEIGHT/4,WIDTH/4);
+            InputStream iSRF = null;
+            try {
+                iSRF = assetManager.open("SRF.dat");
+                Log.d("SRF","opened \"SRF.dat\"");
+            }catch (Exception e){
+                Log.e("open(\"SRF.dat\")",Log.getStackTraceString(e));
+            }
+            SRF = new ShapeRandomForest(iSRF,output,HEIGHT/4,WIDTH/4);
         }
 
         @Override
@@ -256,29 +266,54 @@ public class MainActivity extends Activity {
     private final Camera.PreviewCallback normalpreviewCallback = new Camera.PreviewCallback() {
         public void onPreviewFrame(byte[] bytes, Camera camera) {
             YUV_NV21_TO_RGB(myGray, bytes, WIDTH, HEIGHT, tau);
-            int width = WIDTH / 4;
-            int height = HEIGHT / 4;
-            quarter(myGray, Mono, WIDTH, HEIGHT);
+            int width = HEIGHT / 4;
+            int height = WIDTH / 4;
+            quarter_and_rotate(myGray, Mono, WIDTH, HEIGHT);
             int[] frame;
             if (enableNoiseRejection) {
                 ConnectedComponentProcess CCP = new ConnectedComponentProcess(Mono, width, height);
                 CCP.deleteNoise();
             }
             frame = BIT_TO_INT(Mono);
-            forest.classify(Mono);
+            DRF.classify(Mono);
             int sum = 1;
+            int max_k = 2;
+            int max_genre = 0;
             for (int k = 1; k < 4; k++){
-                sum += forest.genre[k];
+                sum += DRF.genre[k];
+                if (max_genre < DRF.genre[k]){
+                    max_k = k;
+                    max_genre = DRF.genre[k];
+                }
             }
-            textView2.setText("Too Close:\t"+100*forest.genre[1]/sum+"%"
-                            +"\nReasonable:\t"+100*forest.genre[2]/sum+"%"
-                            +"\nToo Far:\t"+100*forest.genre[3]/sum+"%");
+            if (max_k == 2) {//if reasonable
+                sum = 1;
+                max_k = 0;
+                max_genre = 0;
+                SRF.classify(Mono);
+                for (int k = 1; k < 5; k++){
+                    sum += SRF.genre[k];
+                    if (max_genre < SRF.genre[k]){
+                        max_k = k;
+                        max_genre = SRF.genre[k];
+                    }
+                }
+                textView2.setText("Rock:\t"+100* SRF.genre[1]/sum+"%"
+                        +"\nScissors:\t"+100* SRF.genre[2]/sum+"%"
+                        +"\nPaper:\t"+100* SRF.genre[3]/sum+"%"
+                        +"\nNo Gesture:\t"+100* SRF.genre[4]/sum+"%");
+                textView3.setText("Shape:" + Shape.valueOf(max_k));
+            }
+            else {
+                textView2.setText("Too Close:\t"+100* DRF.genre[1]/sum+"%"
+                        +"\nReasonable:\t"+100* DRF.genre[2]/sum+"%"
+                        +"\nToo Far:\t"+100* DRF.genre[3]/sum+"%");
+                textView3.setText("Distance:" + Distance.valueOf(max_k));
+            }
             myBitmap.setPixels(frame, 0, width, 0, 0, width, height);
             myBitmap3.setPixels(output, 0, width, 0, 0, width, height);
-            Matrix mat = new Matrix();
-            mat.postRotate(90);
-            myBitmap2 = Bitmap.createBitmap(myBitmap, 0, 0, myBitmap.getWidth(), myBitmap.getHeight(), mat, true);
-            myBitmap4 = Bitmap.createBitmap(myBitmap3, 0, 0, myBitmap3.getWidth(), myBitmap3.getHeight(), mat,true);
+            myBitmap2 = Bitmap.createBitmap(myBitmap, 0, 0, myBitmap.getWidth(), myBitmap.getHeight(),null, true);
+            myBitmap4 = Bitmap.createBitmap(myBitmap3, 0, 0, myBitmap3.getWidth(), myBitmap3.getHeight(), null,true);
             Rect src = new Rect(0, 0, myBitmap4.getWidth(), myBitmap4.getHeight());
             Rect dst = new Rect(0, 0, myBitmap4.getWidth()*4, myBitmap4.getHeight()*4);
             Canvas c3 = holder2.lockCanvas();
@@ -337,7 +372,7 @@ public class MainActivity extends Activity {
             i[k] = b.get(k) ? 0xFFFFFFFF : 0xFF000000;
         return i;
     }
-    private void quarter(BitArray before,BitArray after,int width,int height){
+    private void quarter_and_rotate(BitArray before,BitArray after,int width,int height){
         for (int y = 0 ; y < height/4; y++)
             for (int x = 0; x < width/4; x++){
                 int sum = 0;
@@ -345,7 +380,7 @@ public class MainActivity extends Activity {
                     for (int dx = 0; dx < 4; dx++) {
                         if (before.get(4 * x + dx + width * (4 * y + dy))) sum++;
                     }
-                after.set(x+width/4*y,sum >= 8);
+                after.set((height/4 - 1 - y)+height/4*x,sum >= 8);
             }
     }
 

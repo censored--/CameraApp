@@ -1,4 +1,4 @@
-package enshu.censoerd.cameraapp;
+package enshu.censored.cameraapp;
 
 import android.app.Application;
 import android.test.ApplicationTestCase;

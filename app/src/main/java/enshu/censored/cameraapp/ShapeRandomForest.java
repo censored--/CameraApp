@@ -1,25 +1,20 @@
 package enshu.censored.cameraapp;
 
 import android.util.Log;
-import android.widget.TextView;
 
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 
-import enshu.censoerd.cameraapp.R;
-
 import static java.util.Arrays.fill;
 
 /**
- * Created by 龍一 on 2015/07/06.
+ * Created by 龍一 on 2015/07/07.
  */
-
-
-public class DistanceRandomForest {
+public class ShapeRandomForest {
     RandomForest forest;
     int[] classifiedImage;
     public int[] genre;
-    //0:Too Close 1:Fit 2:Too Far 3:Noise 4:BackGround
+    //0:BackGround 1:Rock 2:Scissors 3:Paper 4:Noise 5:NoGesture
     private int _width,_height;
 
 
@@ -54,7 +49,7 @@ public class DistanceRandomForest {
             for (int y = 0; y < _height; y++){
                 boolean bit = bits.get(x+_width*y);
                 if (bit){
-                    int[] g = {0,0,0,0,0};
+                    int[] g = {0,0,0,0,0,0};
                     for (int n = 0; n < forest.numberOfTree; n++)
                     {
                         g[getGenre(n,bits,x,y)]++;
@@ -67,15 +62,15 @@ public class DistanceRandomForest {
             }
     }
 
-    DistanceRandomForest(InputStream is,int[] image,int width,int height){
+    ShapeRandomForest(InputStream is,int[] image,int width,int height){
         try {
             ObjectInputStream ois = new ObjectInputStream(is);
             forest = (RandomForest) ois.readObject();
             ois.close();
         } catch (Exception e) {
-            Log.e("DRF.construct",Log.getStackTraceString(e));
+            Log.e("SRF.construct", Log.getStackTraceString(e));
         }
-        genre = new int[5];
+        genre = new int[6];
         classifiedImage = image;
         _width = width;
         _height = height;

@@ -4,24 +4,28 @@
     android:layout_height="match_parent" android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
-    android:paddingBottom="@dimen/activity_vertical_margin" tools:context=".MainActivity">
+    android:paddingBottom="@dimen/activity_vertical_margin" tools:context="enshu.censored.cameraapp.MainActivity">
 
     <SurfaceView
         android:id="@+id/surface_view"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentStart="true" />
 
     <SurfaceView
         android:id="@+id/surface_view2"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_below="@+id/surface_view" />
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true" />
 
     <SurfaceView
+        android:id="@+id/surface_view3"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:id="@+id/surface_view3"
-        android:layout_below="@+id/surface_view2"/>
+        android:layout_alignParentTop="true"
+        android:layout_alignEnd="@+id/RefineCheckBox" />
 
     <TextView
         android:layout_width="wrap_content"
@@ -29,7 +33,7 @@
         android:text="This is a test message."
         android:id="@+id/textView"
         android:layout_gravity="bottom"
-        android:layout_below="@+id/surface_view3"
+        android:layout_above="@+id/numberPicker"
         android:layout_alignParentStart="true" />
 
     <CheckBox
@@ -38,13 +42,33 @@
         android:text="@string/NoiseCheckBoxString"
         android:id="@+id/RefineCheckBox"
         android:layout_alignTop="@+id/numberPicker"
-        android:layout_toEndOf="@+id/surface_view3" />
+        android:layout_alignParentEnd="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Distance percentage"
+        android:id="@+id/textView2"
+        android:layout_below="@+id/RefineCheckBox"
+        android:layout_alignParentEnd="true"
+        android:layout_toEndOf="@+id/numberPicker"
+        android:layout_above="@+id/textView3" />
 
     <NumberPicker
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:id="@+id/numberPicker"
-        android:layout_below="@+id/textView"
+        android:layout_centerVertical="true"
         android:layout_alignParentStart="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="Distance genre"
+        android:id="@+id/textView3"
+        android:layout_alignBottom="@+id/numberPicker"
+        android:layout_alignEnd="@+id/textView2"
+        android:layout_toEndOf="@+id/numberPicker" />
 
 </RelativeLayout>
